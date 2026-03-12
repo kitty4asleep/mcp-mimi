@@ -80,7 +80,7 @@ app.listen(port, "0.0.0.0", () => {
       content: [{ type: "text", text: `saved at ${dt}` }]
     };
   }
-);
+;
 
 mcp.tool(
   "memory_search",
