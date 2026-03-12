@@ -18,7 +18,6 @@ mcp.tool("now", { tz: z.string().optional() }, async ({ tz }) => {
     timeZone: tz || undefined,
     hour12: false
   });
-
   return {
     content: [
       {
@@ -39,29 +38,40 @@ mcp.tool("memory_add", { text: z.string(), tag: z.string().optional() }, async (
   return { content: [{ type: "text", text: `saved at ${dt}` }] };
 });
 
-mcp.tool("memory_search", { query: z.string(), limit: z.number().int().min(1).max(10).optional() }, async ({ query, limit }) => {
-  const q = query.toLowerCase();
-  const max = limit || 5;
-  const hits = memoryStore.filter((m) => m.text.toLowerCase().includes(q)).slice(-max);
-  return { content: [{ type: "text", text: JSON.stringify(hits, null, 2) }] };
-});
+mcp.tool(
+  "memory_search",
+  { query: z.string(), limit: z.number().int().min(1).max(10).optional() },
+  async ({ query, limit }) => {
+    const q = query.toLowerCase();
+    const max = limit || 5;
+    const hits = memoryStore
+      .filter((m) => m.text.toLowerCase().includes(q))
+      .slice(-max);
+    return { content: [{ type: "text", text: JSON.stringify(hits, null, 2) }] };
+  }
+);
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-// 1) 建立 SSE 连接：Kelivo 选 SSE 时会连这个地址
-app.get("/sse", async (req, res) => {
-  const transport = new SSEServerTransport("/messages", res);
-  await mcp.connect(transport);
+// 建立 SSE 连接
+app.get("/sse", (req, res) => {
+  const transport = new SSEServerTransport("/messages", req, res);
+  // 不要 await，保持长连接
+  mcp.connect(transport).catch((err) => {
+    console.error("SSE connect error", err);
+  });
 });
 
-// 2) 工具调用消息会 POST 到这里
+// 工具调用消息转交给 SSE 传输层
 app.post("/messages", async (req, res) => {
   try {
-    // SSE transport 会自己从 req.body 读取消息
-    res.status(200).end();
+    await SSEServerTransport.handlePost(req, res);
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    console.error("handlePost error", e);
+    if (!res.headersSent) {
+      res.status(500).json({ error: String(e) });
+    }
   }
 });
 
