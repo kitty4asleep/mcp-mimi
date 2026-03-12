@@ -8,11 +8,9 @@ const mcp = new Server(
   { capabilities: { tools: {} } }
 );
 
-// 简单内存记忆（Render 免费版重启会丢，但先跑通体验）
 const memoryStore = [];
 
-// 时间工具
-mcp.registerTool("now", { tz: z.string().optional() }, async ({ tz }) => {
+mcp.tool("now", { tz: z.string().optional() }, async ({ tz }) => {
   const dt = new Date();
   const datetime_utc = dt.toISOString();
   const unix_ms = dt.getTime();
@@ -35,48 +33,30 @@ mcp.registerTool("now", { tz: z.string().optional() }, async ({ tz }) => {
   };
 });
 
-// 写入记忆
-mcp.registerTool(
+mcp.tool(
   "memory_add",
-  {
-    text: z.string(),
-    tag: z.string().optional()
-  },
+  { text: z.string(), tag: z.string().optional() },
   async ({ text, tag }) => {
     const dt = new Date().toISOString();
     memoryStore.push({ text, tag: tag || null, time: dt });
     return {
-      content: [
-        {
-          type: "text",
-          text: `saved: "${text.slice(0, 50)}" at ${dt}`
-        }
-      ]
+      content: [{ type: "text", text: `saved at ${dt}` }]
     };
   }
 );
 
-// 简单搜索记忆（关键词匹配）
-mcp.registerTool(
+mcp.tool(
   "memory_search",
-  {
-    query: z.string(),
-    limit: z.number().int().min(1).max(10).optional()
-  },
+  { query: z.string(), limit: z.number().int().min(1).max(10).optional() },
   async ({ query, limit }) => {
     const q = query.toLowerCase();
     const max = limit || 5;
     const hits = memoryStore
       .filter((m) => m.text.toLowerCase().includes(q))
-      .slice(-max); // 最近的在后面
+      .slice(-max);
 
     return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(hits, null, 2)
-        }
-      ]
+      content: [{ type: "text", text: JSON.stringify(hits, null, 2) }]
     };
   }
 );
@@ -85,20 +65,13 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 
 app.post("/mcp", async (req, res) => {
-  try {
-    const transport = new StreamableHTTPServerTransport(req, res);
-    await mcp.connect(transport);
-  } catch (e) {
-    console.error(e);
-    if (!res.headersSent) {
-      res.status(500).json({ error: String(e) });
-    }
-  }
+  const transport = new StreamableHTTPServerTransport(req, res);
+  await mcp.connect(transport);
 });
 
 app.get("/", (req, res) => res.send("ok"));
 
 const port = process.env.PORT || 3000;
 app.listen(port, "0.0.0.0", () => {
-  console.log(`MCP server listening on :${port} (POST /mcp)`);
+  console.log(`listening on :${port}`);
 });
