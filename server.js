@@ -12,7 +12,7 @@ const mcp = new Server(
 const memoryStore = [];
 
 // 时间工具
-mcp.tool("now", { tz: z.string().optional() }, async ({ tz }) => {
+mcp.registerTool("now", { tz: z.string().optional() }, async ({ tz }) => {
   const dt = new Date();
   const datetime_utc = dt.toISOString();
   const unix_ms = dt.getTime();
@@ -36,7 +36,7 @@ mcp.tool("now", { tz: z.string().optional() }, async ({ tz }) => {
 });
 
 // 写入记忆
-mcp.tool(
+mcp.registerTool(
   "memory_add",
   {
     text: z.string(),
@@ -57,7 +57,7 @@ mcp.tool(
 );
 
 // 简单搜索记忆（关键词匹配）
-mcp.tool(
+mcp.registerTool(
   "memory_search",
   {
     query: z.string(),
